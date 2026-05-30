@@ -23,10 +23,10 @@ DB_CONFIG = {
     'charset': 'utf8mb4',
 }
 
-# 阿里云 OSS 配置
+# 阿里云 OSS 配置（密钥通过 Render.com 环境变量注入，不写入代码）
 OSS_CONFIG = {
-    'access_key': os.environ.get('OSS_ACCESS_KEY', 'LTAI5t7vEto5t8ichufJMF6c'),
-    'access_secret': os.environ.get('OSS_ACCESS_SECRET', 'KTadrDdhCbfvcvH323KqPwQN0P1F1y'),
+    'access_key': os.environ.get('OSS_ACCESS_KEY', ''),
+    'access_secret': os.environ.get('OSS_ACCESS_SECRET', ''),
     'endpoint': 'https://oss-cn-hangzhou.aliyuncs.com',
     'bucket': 'trade-signals-jfchq8848',
     'key': 'signals.json',
