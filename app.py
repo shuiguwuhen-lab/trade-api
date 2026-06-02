@@ -103,19 +103,36 @@ def do_sync(strategy='dougua1', mode='1'):
 # ── 后台自动同步线程 ─────────────────────────────────────────
 # 聚宽和国金PT都无法访问 Render.com，故此线程每30秒自动拉取
 # MySQL 信号写入 OSS，实现全链路解耦
-def _auto_sync_worker():
-    """后台线程：每30秒自动同步 MySQL → OSS"""
-    while True:
-        try:
-            synced, deleted = do_sync('dougua1', '1')
-            if synced > 0:
-                print(f"[auto-sync] synced={synced} deleted={deleted}")
-        except Exception as e:
-            print(f"[auto-sync] error: {e}")
-        _time.sleep(30)
+#
+# 注意：不能使用 gunicorn --preload，因为 fork() 后子进程
+# 只保留主线程，daemon 线程会丢失。必须在每个 worker 启动后
+# 通过 post_worker_init 钩子或模块级 import 时创建。
+_auto_sync_started = False
+_auto_sync_lock = threading.Lock()
 
-_auto_sync_thread = threading.Thread(target=_auto_sync_worker, daemon=True, name="auto-sync")
-_auto_sync_thread.start()
+def _start_auto_sync():
+    global _auto_sync_started
+    with _auto_sync_lock:
+        if _auto_sync_started:
+            return
+        _auto_sync_started = True
+
+    def _auto_sync_worker():
+        while True:
+            try:
+                synced, deleted = do_sync('dougua1', '1')
+                if synced > 0:
+                    print(f"[auto-sync] synced={synced} deleted={deleted}")
+            except Exception as e:
+                print(f"[auto-sync] error: {e}")
+            _time.sleep(30)
+
+    t = threading.Thread(target=_auto_sync_worker, daemon=True, name="auto-sync")
+    t.start()
+
+# 模块加载时尝试启动（gunicorn 非 --preload 模式下，每个 worker import 时执行）
+# gunicorn --preload 模式下此线程会在 fork 后丢失，另通过 post_worker_init 钩子补救
+_start_auto_sync()
 
 
 @app.route('/')
